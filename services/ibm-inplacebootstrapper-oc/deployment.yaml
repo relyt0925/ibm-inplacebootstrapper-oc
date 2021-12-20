@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: List
+metadata:
+  name: ibm-inplacebootstrapper-list
+  annotations:
+    version: (( grab $TRAVIS_COMMIT || "dev" ))
+    razee.io/source-url: (( grab $REPO_SOURCE_URL ))
+    razee.io/build-url: (( grab $BUILD_URL ))
+items:
+  - apiVersion: apps/v1
+    kind: DaemonSet
+    metadata:
+      labels:
+        name: ibm-inplacebootstrapper
+      annotations:
+        version: (( grab $TRAVIS_COMMIT || "dev" ))
+        razee.io/source-url: (( grab $REPO_SOURCE_URL ))
+        razee.io/build-url: (( grab $BUILD_URL ))
+      name: ibm-inplacebootstrapper
+      namespace: kube-system
+    spec:
+      selector:
+        matchLabels:
+          name: ibm-inplacebootstrapper
+      template:
+        metadata:
+          labels:
+            name: ibm-inplacebootstrapper
+        spec:
+          tolerations:
+            - operator: "Exists"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: ibm-cloud.kubernetes.io/ipb-schedule
+                        operator: Exists
+          hostPID: true
+          serviceAccount: ibm-inplacebootstrapper
+          containers:
+            - name: ipb
+              image: (( concat "{{ DOCKER_REGISTRY }}/armada-master/ibm-inplacebootstrapper-oc:" metadata.annotations.version ))
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 10M
+              securityContext:
+                privileged: true
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              volumeMounts:
+                - mountPath: /host
+                  name: host-volume
+          volumes:
+            - name: host-volume
+              hostPath:
+                # directory location on host
+                path: /
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: ibm-inplacebootstrapper
+      namespace: kube-system
+      annotations:
+        version: (( grab $TRAVIS_COMMIT || "dev" ))
+        razee.io/source-url: (( grab $REPO_SOURCE_URL ))
+        razee.io/build-url: (( grab $BUILD_URL ))
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: ibm-inplacebootstrapper
+      namespace: kube-system
+      annotations:
+        version: (( grab $TRAVIS_COMMIT || "dev" ))
+        razee.io/source-url: (( grab $REPO_SOURCE_URL ))
+        razee.io/build-url: (( grab $BUILD_URL ))
+    rules:
+      - apiGroups:
+          - ""
+        resources:
+          - secrets
+        verbs:
+          - "get"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: ibm-inplacebootstrapper
+      namespace: kube-system
+      annotations:
+        version: (( grab $TRAVIS_COMMIT || "dev" ))
+        razee.io/source-url: (( grab $REPO_SOURCE_URL ))
+        razee.io/build-url: (( grab $BUILD_URL ))
+    subjects:
+      - kind: ServiceAccount
+        name: ibm-inplacebootstrapper
+        namespace: kube-system
+    roleRef:
+      kind: Role
+      name: ibm-inplacebootstrapper
+      apiGroup: rbac.authorization.k8s.io
